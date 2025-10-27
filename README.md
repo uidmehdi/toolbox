@@ -26,6 +26,17 @@ Automatically builds multi-arch images for:
 - Branch and PR specific tags
 
 ## Usage
+Run the image interactively:
 ```bash
-docker run -it ghcr.io/uidmehdi/toolbox
+docker run --rm -it uidmehdi/toolbox
+```
+
+The container starts as an unprivileged user (`toolbox`) for safety. Override that when needed:
+```bash
+docker run --rm -it --user root uidmehdi/toolbox
+```
+
+Attach a working directory from the host to make the utilities more useful:
+```bash
+docker run --rm -it -v "$PWD":/workspace -w /workspace uidmehdi/toolbox
 ```
