@@ -6,21 +6,35 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKERHUB: docker.io
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+    
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile
+            image-suffix: ""
+            image-name: toolbox
+          - dockerfile: Dockerfile.azure
+            image-suffix: "-azure"
+            image-name: toolbox-azure
+    
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Extract Alpine version
       id: alpine-version
       run: |
-        VERSION=$(grep '^FROM alpine' Dockerfile | cut -d':' -f2)
+        VERSION=$(grep '^FROM alpine' ${{ matrix.dockerfile }} | cut -d':' -f2)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Set up QEMU
@@ -30,15 +44,18 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
-        registry: ghcr.io
+        registry: ${{ env.REGISTRY_GHCR }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Login to Docker Hub
+      if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
+        registry: ${{ env.REGISTRY_DOCKERHUB }}
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -47,20 +64,43 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          ghcr.io/${{ github.repository }}
-          docker.io/${{ secrets.DOCKERHUB_USERNAME }}/toolbox
+          ${{ env.REGISTRY_GHCR }}/${{ github.repository }}${{ matrix.image-suffix }}
+          ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image-name }}
         tags: |
           type=ref,event=branch
           type=ref,event=pr
           type=semver,pattern={{version}}
-          type=raw,value=latest
+          type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=alpine${{ steps.alpine-version.outputs.version }}
+        labels: |
+          org.opencontainers.image.title=${{ matrix.image-name }}
+          org.opencontainers.image.description=Alpine-based ${{ matrix.image-name }}${{ contains(matrix.image-name, '-azure') && ' with Azure CLI' || '' }}
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
+        file: ${{ matrix.dockerfile }}
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        provenance: mode=max
+        sbom: true
+
+    - name: Run Trivy vulnerability scanner
+      if: github.event_name != 'pull_request'
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY_GHCR }}/${{ github.repository }}${{ matrix.image-suffix }}:latest
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy results to GitHub Security
+      if: github.event_name != 'pull_request'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'

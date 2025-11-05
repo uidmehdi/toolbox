@@ -1,0 +1,57 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+    # Network tools
+    tcpdump \
+    bind-tools \
+    nmap-ncat \
+    curl \
+    wget \
+    openssh-client \
+    # Development tools
+    git \
+    vim \
+    # Database clients
+    redis \
+    postgresql-client \
+    # Storage utilities
+    nfs-utils \
+    # Azure CLI dependencies
+    python3 \
+    && addgroup -S toolbox \
+    && adduser -S -G toolbox toolbox \
+    && mkdir -p /home/toolbox \
+    && chown -R toolbox:toolbox /home/toolbox \
+    && rm -rf /var/cache/apk/*
+
+# Set system-wide paths for uv tool installation
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+ENV UV_TOOL_DIR=/usr/share/uv/tools
+
+# Combine build deps, install, and cleanup in one RUN to minimize layers
+RUN apk add --no-cache --update \
+    gcc \
+    python3-dev \
+    musl-dev \
+    linux-headers \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
+    && mkdir -p ${UV_TOOL_DIR} \
+    && uv tool install --no-cache --no-managed-python --prerelease=allow azure-cli@latest \
+    && chmod -R a+rX ${UV_TOOL_DIR} \
+    && rm -rf /root/.cache/uv /root/.local/share/uv \
+    && apk del \
+    gcc \
+    python3-dev \
+    musl-dev \
+    linux-headers \
+    && rm -rf /var/cache/apk/*
+
+SHELL ["/bin/sh", "-c"]
+
+WORKDIR /home/toolbox
+
+USER toolbox
+
+CMD ["/bin/sh"]
