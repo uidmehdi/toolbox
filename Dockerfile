@@ -7,6 +7,7 @@ RUN apk add --no-cache \
     nmap-ncat \
     curl \
     wget \
+    openssl \
     openssh-client \
     # Development tools
     git \

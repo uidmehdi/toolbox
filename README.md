@@ -1,5 +1,7 @@
 # Alpine Utility Container
 
+[![Docker Image CI](https://github.com/uidmehdi/toolbox/actions/workflows/docker-image.yml/badge.svg)](https://github.com/uidmehdi/toolbox/actions/workflows/docker-image.yml)
+
 ## Overview
 Lightweight Alpine Linux-based container with essential network, development, and database tools. Available in two variants: a minimal base image and an Azure CLI-enabled version.
 
@@ -14,7 +16,7 @@ Extended variant including Azure CLI installed via `uv` for cloud operations and
 ## Features
 
 ### Common to Both Variants
-- **Network tools**: tcpdump, bind-tools, nmap-ncat, curl, wget, openssh-client
+- **Network tools**: tcpdump, bind-tools, nmap-ncat, curl, wget, openssl, openssh-client
 - **Development utilities**: git, vim
 - **Database clients**: Redis, PostgreSQL
 - **Storage support**: NFS utils
@@ -54,8 +56,10 @@ Images are automatically built and published via GitHub Actions with:
 - `uidmehdi/toolbox-azure:alpine<version>` - Azure variant, specific Alpine version
 
 ### GitHub Container Registry
-- `ghcr.io/uidmehdi/toolbox:latest` - Base image
-- `ghcr.io/uidmehdi/toolbox-azure:latest` - Azure variant
+- `ghcr.io/uidmehdi/toolbox:latest` - Base image, latest build
+- `ghcr.io/uidmehdi/toolbox:alpine<version>` - Base image, specific Alpine version
+- `ghcr.io/uidmehdi/toolbox-azure:latest` - Azure variant, latest build
+- `ghcr.io/uidmehdi/toolbox-azure:alpine<version>` - Azure variant, specific Alpine version
 
 Branch and PR builds are tagged accordingly for testing.
 
